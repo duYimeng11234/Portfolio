@@ -1,0 +1,41 @@
+#pragma kernel CalculatePressure
+
+struct Particle
+{
+    float2 position;
+    float2 velocity;
+};
+
+RWStructuredBuffer<Particle> particles;
+int particleCount;
+float smoothingRadius;
+float pressureStrength;
+float deltaTime;
+
+[numthreads(64, 1, 1)]
+void CalculatePressure(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if ((int)i >= particleCount)
+    {
+        return;
+    }
+    float2 posA = particles[i].position;
+    float2 forceAccum = float2(0, 0);
+    for (int j = 0; j < particleCount; j++)
+    {
+        if (j == (int) i)
+        {
+            continue;
+        }
+        float2 diff = posA - particles[j].position;
+        float dist = length(diff);
+        if (dist < smoothingRadius && dist > 0.001f)
+        {
+            float strength = 1.0f - (dist / smoothingRadius);
+            float2 direction = diff / dist;
+            forceAccum += direction * strength * pressureStrength * deltaTime;
+        }
+    }
+    particles[i].velocity += forceAccum;
+}
